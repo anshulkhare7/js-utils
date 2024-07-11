@@ -1,3 +1,4 @@
+<!-- Generated with Cloude -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -103,7 +104,7 @@
           messageElement.textContent =
             "PDF unlocked successfully! Preparing download...";
 
-          const scale = 2; // Increase this for higher quality, but larger file size
+          const scale = 3; // Increase this for higher quality, but larger file size
           const firstPage = await pdf.getPage(1);
           const viewport = firstPage.getViewport({ scale: scale });
 
