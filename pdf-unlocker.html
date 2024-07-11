@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Unlocker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        text-align: center;
+      }
+      .input-group {
+        margin-bottom: 10px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+      }
+      input[type="file"],
+      input[type="password"] {
+        width: 100%;
+        padding: 5px;
+        margin-bottom: 10px;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #message {
+        margin-top: 10px;
+        text-align: center;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>PDF Unlocker</h1>
+      <div class="input-group">
+        <label for="pdfFile">Select PDF File:</label>
+        <input type="file" id="pdfFile" accept=".pdf" />
+      </div>
+      <div class="input-group">
+        <label for="password">Enter Password:</label>
+        <input type="password" id="password" />
+      </div>
+      <button onclick="unlockPDF()">Unlock PDF</button>
+      <div id="message"></div>
+    </div>
+
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js";
+
+      async function unlockPDF() {
+        const pdfFile = document.getElementById("pdfFile").files[0];
+        const password = document.getElementById("password").value;
+        const messageElement = document.getElementById("message");
+
+        if (!pdfFile) {
+          messageElement.textContent = "Please select a PDF file.";
+          return;
+        }
+
+        if (!password) {
+          messageElement.textContent = "Please enter the password.";
+          return;
+        }
+
+        messageElement.textContent = "Processing...";
+
+        try {
+          const arrayBuffer = await pdfFile.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            password: password,
+          }).promise;
+
+          messageElement.textContent =
+            "PDF unlocked successfully! Preparing download...";
+
+          const scale = 2; // Increase this for higher quality, but larger file size
+          const firstPage = await pdf.getPage(1);
+          const viewport = firstPage.getViewport({ scale: scale });
+
+          const newPdf = new jspdf.jsPDF({
+            orientation: viewport.width > viewport.height ? "l" : "p",
+            unit: "pt",
+            format: [viewport.width, viewport.height],
+          });
+
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({ canvasContext: context, viewport: viewport })
+              .promise;
+
+            if (pageNum > 1) {
+              newPdf.addPage([viewport.width, viewport.height]);
+            }
+
+            newPdf.addImage(
+              canvas.toDataURL("image/jpeg", 1.0),
+              "JPEG",
+              0,
+              0,
+              viewport.width,
+              viewport.height,
+              "",
+              "FAST"
+            );
+          }
+
+          newPdf.save("unlocked.pdf");
+          messageElement.textContent = "Unlocked PDF ready for download!";
+        } catch (error) {
+          messageElement.textContent =
+            "Failed to unlock PDF. Please check the password and try again.";
+          console.error("Error details:", error);
+        }
+      }
+    </script>
+  </body>
+</html>
