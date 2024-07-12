@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        padding-bottom: 80px; /* Make room for the floating save button */
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      input[type="text"] {
+        width: 50px;
+      }
+      .current-month {
+        background-color: #e6f3ff;
+      }
+      #save-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        font-size: 18px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transition: background-color 0.3s, transform 0.1s;
+      }
+      #save-button:hover {
+        background-color: #45a049;
+      }
+      #save-button:active {
+        transform: scale(0.98);
+      }
+      #unsaved-icon {
+        position: fixed;
+        top: 10px;
+        right: 40px;
+        width: 20px;
+        height: 20px;
+        background-color: red;
+        border-radius: 50%;
+        display: none;
+      }
+      #scroll-to-today {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 100;
+        width: 24px;
+        height: 24px;
+        background-color: #f0f0f0;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 14px;
+        color: #333;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+      #scroll-to-today:hover {
+        background-color: #e0e0e0;
+      }
+      .today {
+        background-color: #ffff99;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Habit Tracker</h1>
+    <div id="unsaved-icon" title="Unsaved changes"></div>
+    <button id="scroll-to-today" title="Scroll to Today">📅</button>
+    <div id="habit-tracker"></div>
+    <button id="save-button">Save Data</button>
+
+    <script>
+      const habits = [
+        { name: "PNS", type: "checkbox" },
+        { name: "Dinner Time", type: "text" },
+        { name: "Bed Time", type: "text" },
+        { name: "Sleep Hours", type: "text" },
+        { name: "Read", type: "checkbox" },
+        { name: "Write", type: "checkbox" },
+        { name: "Max HR", type: "text" },
+        { name: "Steps", type: "text" },
+      ];
+
+      let hasUnsavedChanges = false;
+
+      function getDaysArray(year, month) {
+        const date = new Date(year, month, 1);
+        const result = [];
+        while (date.getMonth() === month) {
+          result.push(new Date(date));
+          date.setDate(date.getDate() + 1);
+        }
+        return result;
+      }
+
+      function formatDate(date) {
+        return `${date.getDate().toString().padStart(2, "0")}/${(
+          date.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}`;
+      }
+
+      function createHabitTracker() {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const today = now.getDate();
+
+        const prevMonthDays = getDaysArray(currentYear, currentMonth - 1).slice(
+          -10
+        );
+        const currentMonthDays = getDaysArray(currentYear, currentMonth);
+        const nextMonthDays = getDaysArray(currentYear, currentMonth + 1).slice(
+          0,
+          10
+        );
+
+        const allDays = [
+          ...prevMonthDays,
+          ...currentMonthDays,
+          ...nextMonthDays,
+        ];
+
+        let html = "<table><tr><th>Date</th>";
+        habits.forEach((habit) => {
+          html += `<th>${habit.name}</th>`;
+        });
+        html += "</tr>";
+
+        allDays.forEach((day) => {
+          const isCurrentMonth = day.getMonth() === currentMonth;
+          const isToday = isCurrentMonth && day.getDate() === today;
+          const className = isCurrentMonth ? "current-month" : "";
+          const todayClass = isToday ? "today" : "";
+          html += `<tr class="${className} ${todayClass}" data-date="${formatDate(
+            day
+          )}"><td>${formatDate(day)}</td>`;
+          habits.forEach((habit) => {
+            const id = `${habit.name.replace(" ", "-")}-${
+              day.toISOString().split("T")[0]
+            }`;
+            if (habit.type === "checkbox") {
+              html += `<td><input type="checkbox" id="${id}"></td>`;
+            } else {
+              html += `<td><input type="text" id="${id}"></td>`;
+            }
+          });
+          html += "</tr>";
+        });
+
+        html += "</table>";
+        document.getElementById("habit-tracker").innerHTML = html;
+
+        // Add event listeners to inputs
+        const inputs = document.querySelectorAll("input");
+        inputs.forEach((input) => {
+          input.addEventListener("change", handleInputChange);
+          // Load saved data
+          const savedValue = localStorage.getItem(input.id);
+          if (savedValue !== null) {
+            if (input.type === "checkbox") {
+              input.checked = savedValue === "true";
+            } else {
+              input.value = savedValue;
+            }
+          }
+        });
+
+        // Scroll to today's date
+        setTimeout(scrollToToday, 100);
+      }
+
+      function handleInputChange(event) {
+        const input = event.target;
+        const value = input.type === "checkbox" ? input.checked : input.value;
+        localStorage.setItem(input.id, value);
+        setUnsavedChanges(true);
+      }
+
+      function setUnsavedChanges(value) {
+        hasUnsavedChanges = value;
+        document.getElementById("unsaved-icon").style.display = value
+          ? "block"
+          : "none";
+      }
+
+      function saveData() {
+        const data = {};
+        const inputs = document.querySelectorAll("input");
+        inputs.forEach((input) => {
+          data[input.id] =
+            input.type === "checkbox" ? input.checked : input.value;
+        });
+
+        const dataStr = JSON.stringify(data);
+        const dataUri =
+          "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+
+        const exportFileDefaultName = "habit_tracker_data.json";
+
+        const linkElement = document.createElement("a");
+        linkElement.setAttribute("href", dataUri);
+        linkElement.setAttribute("download", exportFileDefaultName);
+        linkElement.click();
+
+        setUnsavedChanges(false);
+      }
+
+      function scrollToToday() {
+        const today = new Date();
+        const formattedDate = formatDate(today);
+        const todayRow = document.querySelector(
+          `tr[data-date="${formattedDate}"]`
+        );
+
+        if (todayRow) {
+          const rect = todayRow.getBoundingClientRect();
+          const scrollTop =
+            window.pageYOffset || document.documentElement.scrollTop;
+          const targetScrollPosition =
+            scrollTop + rect.top - window.innerHeight / 2 + rect.height / 2;
+
+          window.scrollTo({
+            top: targetScrollPosition,
+            behavior: "smooth",
+          });
+        }
+      }
+
+      createHabitTracker();
+
+      document
+        .getElementById("save-button")
+        .addEventListener("click", saveData);
+      document
+        .getElementById("scroll-to-today")
+        .addEventListener("click", scrollToToday);
+
+      window.addEventListener("beforeunload", (event) => {
+        if (hasUnsavedChanges) {
+          event.preventDefault();
+          event.returnValue = "";
+        }
+      });
+    </script>
+  </body>
+</html>
