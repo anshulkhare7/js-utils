@@ -125,6 +125,15 @@ Edit
       #file-input {
         display: none;
       }
+      .radio-group {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+      }
+      .radio-group label {
+        display: flex;
+        align-items: center;
+      }
     </style>
   </head>
   <body>
@@ -138,12 +147,12 @@ Edit
 
     <script>
       const habits = [
-        { name: "PNS", type: "checkbox" },
+        { name: "PNS", type: "radio" },
         { name: "Dinner Time", type: "text" },
         { name: "Bed Time", type: "text" },
         { name: "Sleep Hours", type: "text" },
-        { name: "Read", type: "checkbox" },
-        { name: "Write", type: "checkbox" },
+        { name: "Read", type: "radio" },
+        { name: "Write", type: "radio" },
         { name: "Max HR", type: "text" },
         { name: "Steps", type: "text" },
       ];
@@ -207,8 +216,13 @@ Edit
             const id = `${habit.name.replace(" ", "-")}-${
               day.toISOString().split("T")[0]
             }`;
-            if (habit.type === "checkbox") {
-              html += `<td><input type="checkbox" id="${id}"></td>`;
+            if (habit.type === "radio") {
+              html += `<td>
+                            <div class="radio-group">
+                                <label><input type="radio" name="${id}" value="Yes" id="${id}-yes"> Yes</label>
+                                <label><input type="radio" name="${id}" value="No" id="${id}-no"> No</label>
+                            </div>
+                        </td>`;
             } else {
               html += `<td><input type="text" id="${id}"></td>`;
             }
@@ -226,8 +240,8 @@ Edit
           // Load saved data
           const savedValue = localStorage.getItem(input.id);
           if (savedValue !== null) {
-            if (input.type === "checkbox") {
-              input.checked = savedValue === "true";
+            if (input.type === "radio") {
+              input.checked = input.value === savedValue;
             } else {
               input.value = savedValue;
             }
@@ -240,8 +254,14 @@ Edit
 
       function handleInputChange(event) {
         const input = event.target;
-        const value = input.type === "checkbox" ? input.checked : input.value;
-        localStorage.setItem(input.id, value);
+        let value;
+        if (input.type === "radio") {
+          value = input.value;
+          localStorage.setItem(input.name, value);
+        } else {
+          value = input.value;
+          localStorage.setItem(input.id, value);
+        }
         setUnsavedChanges(true);
       }
 
@@ -256,8 +276,11 @@ Edit
         const data = {};
         const inputs = document.querySelectorAll("input");
         inputs.forEach((input) => {
-          data[input.id] =
-            input.type === "checkbox" ? input.checked : input.value;
+          if (input.type === "radio" && input.checked) {
+            data[input.name] = input.value;
+          } else if (input.type === "text") {
+            data[input.id] = input.value;
+          }
         });
 
         const dataStr = JSON.stringify(data, null, 2);
