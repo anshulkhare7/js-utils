@@ -1,3 +1,31 @@
+<!--
+Prompt: Create an html file with css and javascript. Loading this file locally in the browser should show a UI for a habit tracker app. There should be eight tasks (habits) in the habit tracker against each day. It should show current month, 10 days of the last month and 10 days of the next month. 
+
+These are the 8 habits that I am working on: PNS, Dinner Time, Bed time, Sleep hours, Read, Write, Max HR, Steps.
+
+Each cell of the habit tracker corresponds to the status of that particular habit on that day. For PNS, Read, Write, it should be a check box. For Dinner Time, Bed Time, Sleep Hours, and Max HR, it should be input text box.
+
+Any changes on this page should be preserved locally in a file so that loading this file again should maintain the state of the habit tracker. 
+
+No, I want you to write the data on a file on the disc, so that the app should work even if the html file is opened across different browsers. Don't use browser localstorage. Use file system for maintaing the state of the app.
+
+I want you to store in local storage and also give an ability to save as json by adding a save data button. On closing the window, it should give an alert that data hasn't been saved. There should also be a small status button (an icon) somewhere on the page (visible prominently) which indicates that there's unsaved data.
+
+Swap the rows and columns. Show the date on the rows, and the habits on the column. Also, show the dates in this format - DD/MM.
+
+Add a small button at top which should scroll the screen to the date which is today's date. The scroll should be such that the "scrolled to" poistion is at the center of the screen (veritcally)
+
+The scroll to today is overlapping on top of the page header/title. Make the button very small, like an icon. And show it on the top right corner.
+
+Show me the complete code, Dude.
+
+When the page loads for the first time, it should by default scroll down to the row which is today's date. Also, the save data button should be a floating button at the bottom right corner of the screen. Make the button little more conspicuous.
+
+Saving the file should save it as .json file and there should also be an import button at the top (next to the calendar button which is used for scrolling to current date). Import button should take the json file (which was earlier exported from save button), and overwrite the data in localstorage (only for overlapping dates, and preserve the localstoraeg data which is not there in the json file).
+
+Edit
+
+-->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,7 +37,7 @@
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 20px;
-        padding-bottom: 80px; /* Make room for the floating save button */
+        padding-bottom: 80px;
       }
       table {
         border-collapse: collapse;
@@ -56,17 +84,17 @@
       #unsaved-icon {
         position: fixed;
         top: 10px;
-        right: 40px;
+        right: 70px;
         width: 20px;
         height: 20px;
         background-color: red;
         border-radius: 50%;
         display: none;
       }
-      #scroll-to-today {
+      #scroll-to-today,
+      #import-button {
         position: fixed;
         top: 10px;
-        right: 10px;
         z-index: 100;
         width: 24px;
         height: 24px;
@@ -81,11 +109,21 @@
         color: #333;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       }
-      #scroll-to-today:hover {
+      #scroll-to-today {
+        right: 10px;
+      }
+      #import-button {
+        right: 40px;
+      }
+      #scroll-to-today:hover,
+      #import-button:hover {
         background-color: #e0e0e0;
       }
       .today {
         background-color: #ffff99;
+      }
+      #file-input {
+        display: none;
       }
     </style>
   </head>
@@ -93,6 +131,8 @@
     <h1>Habit Tracker</h1>
     <div id="unsaved-icon" title="Unsaved changes"></div>
     <button id="scroll-to-today" title="Scroll to Today">📅</button>
+    <button id="import-button" title="Import Data">📥</button>
+    <input type="file" id="file-input" accept=".json" />
     <div id="habit-tracker"></div>
     <button id="save-button">Save Data</button>
 
@@ -220,18 +260,42 @@
             input.type === "checkbox" ? input.checked : input.value;
         });
 
-        const dataStr = JSON.stringify(data);
-        const dataUri =
-          "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+        const dataStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
 
         const exportFileDefaultName = "habit_tracker_data.json";
 
         const linkElement = document.createElement("a");
-        linkElement.setAttribute("href", dataUri);
+        linkElement.setAttribute("href", url);
         linkElement.setAttribute("download", exportFileDefaultName);
         linkElement.click();
 
+        URL.revokeObjectURL(url);
+
         setUnsavedChanges(false);
+      }
+
+      function importData(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            try {
+              const importedData = JSON.parse(e.target.result);
+              for (let key in importedData) {
+                localStorage.setItem(key, importedData[key]);
+              }
+              createHabitTracker(); // Refresh the tracker with imported data
+              alert("Data imported successfully!");
+            } catch (error) {
+              alert(
+                "Error importing data. Please make sure the file is a valid JSON."
+              );
+            }
+          };
+          reader.readAsText(file);
+        }
       }
 
       function scrollToToday() {
@@ -263,6 +327,14 @@
       document
         .getElementById("scroll-to-today")
         .addEventListener("click", scrollToToday);
+      document
+        .getElementById("import-button")
+        .addEventListener("click", () =>
+          document.getElementById("file-input").click()
+        );
+      document
+        .getElementById("file-input")
+        .addEventListener("change", importData);
 
       window.addEventListener("beforeunload", (event) => {
         if (hasUnsavedChanges) {
