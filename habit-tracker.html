@@ -134,6 +134,10 @@ Edit
         display: flex;
         align-items: center;
       }
+      .disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -183,20 +187,20 @@ Edit
         const currentMonth = now.getMonth();
         const today = now.getDate();
 
-        const prevMonthDays = getDaysArray(currentYear, currentMonth - 1).slice(
-          -10
-        );
-        const currentMonthDays = getDaysArray(currentYear, currentMonth);
-        const nextMonthDays = getDaysArray(currentYear, currentMonth + 1).slice(
-          0,
-          10
-        );
+        // Calculate the start and end dates
+        const startDate = new Date(now);
+        startDate.setDate(today - 5);
+        const endDate = new Date(now);
+        endDate.setDate(today + 2);
 
-        const allDays = [
-          ...prevMonthDays,
-          ...currentMonthDays,
-          ...nextMonthDays,
-        ];
+        const allDays = [];
+        for (
+          let d = new Date(startDate);
+          d <= endDate;
+          d.setDate(d.getDate() + 1)
+        ) {
+          allDays.push(new Date(d));
+        }
 
         let html = "<table><tr><th>Date</th>";
         habits.forEach((habit) => {
@@ -206,10 +210,13 @@ Edit
 
         allDays.forEach((day) => {
           const isCurrentMonth = day.getMonth() === currentMonth;
-          const isToday = isCurrentMonth && day.getDate() === today;
+          const isToday = day.toDateString() === now.toDateString();
+          const isPast = day < new Date(now.setHours(0, 0, 0, 0));
+          const isDisabled = (now - day) / (1000 * 60 * 60 * 24) >= 3; // 3 or more days ago
           const className = isCurrentMonth ? "current-month" : "";
           const todayClass = isToday ? "today" : "";
-          html += `<tr class="${className} ${todayClass}" data-date="${formatDate(
+          const disabledClass = isDisabled ? "disabled" : "";
+          html += `<tr class="${className} ${todayClass} ${disabledClass}" data-date="${formatDate(
             day
           )}"><td>${formatDate(day)}</td>`;
           habits.forEach((habit) => {
@@ -218,13 +225,19 @@ Edit
             }`;
             if (habit.type === "radio") {
               html += `<td>
-                            <div class="radio-group">
-                                <label><input type="radio" name="${id}" value="Yes" id="${id}-yes"> Yes</label>
-                                <label><input type="radio" name="${id}" value="No" id="${id}-no"> No</label>
-                            </div>
-                        </td>`;
+                    <div class="radio-group">
+                        <label><input type="radio" name="${id}" value="Yes" id="${id}-yes" ${
+                isDisabled ? "disabled" : ""
+              }> Yes</label>
+                        <label><input type="radio" name="${id}" value="No" id="${id}-no" ${
+                isDisabled ? "disabled" : ""
+              }> No</label>
+                    </div>
+                </td>`;
             } else {
-              html += `<td><input type="text" id="${id}"></td>`;
+              html += `<td><input type="text" id="${id}" ${
+                isDisabled ? "disabled" : ""
+              }></td>`;
             }
           });
           html += "</tr>";
@@ -234,7 +247,7 @@ Edit
         document.getElementById("habit-tracker").innerHTML = html;
 
         // Add event listeners to inputs
-        const inputs = document.querySelectorAll("input");
+        const inputs = document.querySelectorAll("input:not(:disabled)");
         inputs.forEach((input) => {
           input.addEventListener("change", handleInputChange);
           // Load saved data
@@ -254,6 +267,8 @@ Edit
 
       function handleInputChange(event) {
         const input = event.target;
+        if (input.disabled) return; // Exit if the input is disabled
+
         let value;
         if (input.type === "radio") {
           value = input.value;
@@ -322,23 +337,9 @@ Edit
       }
 
       function scrollToToday() {
-        const today = new Date();
-        const formattedDate = formatDate(today);
-        const todayRow = document.querySelector(
-          `tr[data-date="${formattedDate}"]`
-        );
-
+        const todayRow = document.querySelector("tr.today");
         if (todayRow) {
-          const rect = todayRow.getBoundingClientRect();
-          const scrollTop =
-            window.pageYOffset || document.documentElement.scrollTop;
-          const targetScrollPosition =
-            scrollTop + rect.top - window.innerHeight / 2 + rect.height / 2;
-
-          window.scrollTo({
-            top: targetScrollPosition,
-            behavior: "smooth",
-          });
+          todayRow.scrollIntoView({ behavior: "smooth", block: "center" });
         }
       }
 
