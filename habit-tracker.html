@@ -138,6 +138,46 @@ Edit
         opacity: 0.5;
         pointer-events: none;
       }
+      #add-habit-container {
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #new-habit-name {
+        padding: 5px;
+        width: 150px;
+      }
+      #new-habit-type {
+        padding: 5px;
+      }
+      #add-habit-button {
+        padding: 5px 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      #add-habit-button:hover {
+        background-color: #45a049;
+      }
+      .delete-habit {
+        cursor: pointer;
+        color: #ff4444;
+        margin-left: 5px;
+        font-size: 18px;
+      }
+      .delete-habit:hover {
+        color: #cc0000;
+      }
+      th {
+        position: relative;
+      }
+      .habit-header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
     </style>
   </head>
   <body>
@@ -146,11 +186,21 @@ Edit
     <button id="scroll-to-today" title="Scroll to Today">📅</button>
     <button id="import-button" title="Import Data">📥</button>
     <input type="file" id="file-input" accept=".json" />
+
+    <div id="add-habit-container">
+      <input type="text" id="new-habit-name" placeholder="New habit name" />
+      <select id="new-habit-type">
+        <option value="radio">Radio</option>
+        <option value="text">Text</option>
+      </select>
+      <button id="add-habit-button">Add Habit</button>
+    </div>
+
     <div id="habit-tracker"></div>
     <button id="save-button">Save Data</button>
 
     <script>
-      const habits = [
+      let habits = [
         { name: "PNS", type: "radio" },
         { name: "Dinner Time", type: "text" },
         { name: "Bed Time", type: "text" },
@@ -187,7 +237,6 @@ Edit
         const currentMonth = now.getMonth();
         const today = now.getDate();
 
-        // Calculate the start and end dates
         const startDate = new Date(now);
         startDate.setDate(today - 5);
         const endDate = new Date(now);
@@ -203,8 +252,13 @@ Edit
         }
 
         let html = "<table><tr><th>Date</th>";
-        habits.forEach((habit) => {
-          html += `<th>${habit.name}</th>`;
+        habits.forEach((habit, index) => {
+          html += `<th>
+                    <div class="habit-header">
+                        ${habit.name}
+                        <span class="delete-habit" data-index="${index}" title="Delete habit">🗑️</span>
+                    </div>
+                </th>`;
         });
         html += "</tr>";
 
@@ -212,7 +266,7 @@ Edit
           const isCurrentMonth = day.getMonth() === currentMonth;
           const isToday = day.toDateString() === now.toDateString();
           const isPast = day < new Date(now.setHours(0, 0, 0, 0));
-          const isDisabled = (now - day) / (1000 * 60 * 60 * 24) >= 3; // 3 or more days ago
+          const isDisabled = (now - day) / (1000 * 60 * 60 * 24) >= 3;
           const className = isCurrentMonth ? "current-month" : "";
           const todayClass = isToday ? "today" : "";
           const disabledClass = isDisabled ? "disabled" : "";
@@ -220,20 +274,20 @@ Edit
             day
           )}"><td>${formatDate(day)}</td>`;
           habits.forEach((habit) => {
-            const id = `${habit.name.replace(" ", "-")}-${
+            const id = `${habit.name.replace(/\s+/g, "-")}-${
               day.toISOString().split("T")[0]
             }`;
             if (habit.type === "radio") {
               html += `<td>
-                    <div class="radio-group">
-                        <label><input type="radio" name="${id}" value="Yes" id="${id}-yes" ${
+                            <div class="radio-group">
+                                <label><input type="radio" name="${id}" value="Yes" id="${id}-yes" ${
                 isDisabled ? "disabled" : ""
               }> Yes</label>
-                        <label><input type="radio" name="${id}" value="No" id="${id}-no" ${
+                                <label><input type="radio" name="${id}" value="No" id="${id}-no" ${
                 isDisabled ? "disabled" : ""
               }> No</label>
-                    </div>
-                </td>`;
+                            </div>
+                        </td>`;
             } else {
               html += `<td><input type="text" id="${id}" ${
                 isDisabled ? "disabled" : ""
@@ -246,11 +300,9 @@ Edit
         html += "</table>";
         document.getElementById("habit-tracker").innerHTML = html;
 
-        // Add event listeners to inputs
         const inputs = document.querySelectorAll("input:not(:disabled)");
         inputs.forEach((input) => {
           input.addEventListener("change", handleInputChange);
-          // Load saved data
           const savedValue = localStorage.getItem(input.id);
           if (savedValue !== null) {
             if (input.type === "radio") {
@@ -261,13 +313,16 @@ Edit
           }
         });
 
-        // Scroll to today's date
+        document.querySelectorAll(".delete-habit").forEach((button) => {
+          button.addEventListener("click", deleteHabit);
+        });
+
         setTimeout(scrollToToday, 100);
       }
 
       function handleInputChange(event) {
         const input = event.target;
-        if (input.disabled) return; // Exit if the input is disabled
+        if (input.disabled) return;
 
         let value;
         if (input.type === "radio") {
@@ -298,6 +353,8 @@ Edit
           }
         });
 
+        data.habits = habits;
+
         const dataStr = JSON.stringify(data, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -322,9 +379,16 @@ Edit
             try {
               const importedData = JSON.parse(e.target.result);
               for (let key in importedData) {
-                localStorage.setItem(key, importedData[key]);
+                if (key !== "habits") {
+                  localStorage.setItem(key, importedData[key]);
+                }
               }
-              createHabitTracker(); // Refresh the tracker with imported data
+
+              if (importedData.habits) {
+                habits = importedData.habits;
+              }
+
+              createHabitTracker();
               alert("Data imported successfully!");
             } catch (error) {
               alert(
@@ -340,6 +404,35 @@ Edit
         const todayRow = document.querySelector("tr.today");
         if (todayRow) {
           todayRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+
+      function addNewHabit() {
+        const newHabitName = document
+          .getElementById("new-habit-name")
+          .value.trim();
+        const newHabitType = document.getElementById("new-habit-type").value;
+
+        if (newHabitName) {
+          habits.push({ name: newHabitName, type: newHabitType });
+          createHabitTracker();
+          setUnsavedChanges(true);
+          document.getElementById("new-habit-name").value = "";
+        } else {
+          alert("Please enter a habit name.");
+        }
+      }
+
+      function deleteHabit(event) {
+        const index = event.target.dataset.index;
+        if (
+          confirm(
+            `Are you sure you want to delete the habit "${habits[index].name}"?`
+          )
+        ) {
+          habits.splice(index, 1);
+          createHabitTracker();
+          setUnsavedChanges(true);
         }
       }
 
@@ -359,6 +452,9 @@ Edit
       document
         .getElementById("file-input")
         .addEventListener("change", importData);
+      document
+        .getElementById("add-habit-button")
+        .addEventListener("click", addNewHabit);
 
       window.addEventListener("beforeunload", (event) => {
         if (hasUnsavedChanges) {
